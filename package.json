@@ -1,0 +1,31 @@
+{
+  "name": "labelzoom-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for LabelZoom — convert and preview barcode labels (ZPL, PDF, PNG, XML, JSON) from Claude Code and other MCP clients",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "labelzoom-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build",
+    "test": "node --test dist/*.test.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "typescript": "^5.9.3"
+  }
+}
