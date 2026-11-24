@@ -1,14 +1,41 @@
 {
   "name": "labelzoom-mcp",
-  "version": "0.1.0",
-  "description": "MCP server for LabelZoom — convert and preview barcode labels (ZPL, PDF, PNG, XML, JSON) from Claude Code and other MCP clients",
+  "version": "0.2.0",
+  "description": "MCP server for LabelZoom: convert, preview and print barcode labels (ZPL, EPL, CPCL and other printer languages, BarTender, NiceLabel and DYMO files, PDF and images) from Claude and other MCP clients",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "labelzoom",
+    "zpl",
+    "epl",
+    "cpcl",
+    "barcode",
+    "label",
+    "thermal-printer",
+    "bartender",
+    "nicelabel"
+  ],
   "license": "MIT",
+  "author": {
+    "name": "RJF Technology Solutions LLC",
+    "email": "support@labelzoom.com"
+  },
+  "homepage": "https://github.com/labelzoom/labelzoom-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/labelzoom/labelzoom-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/labelzoom/labelzoom-mcp/issues"
+  },
   "type": "module",
   "bin": {
     "labelzoom-mcp": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.test.*",
+    "README.md"
   ],
   "engines": {
     "node": ">=20"
@@ -17,15 +44,16 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "prepublishOnly": "npm run build",
-    "test": "node --test dist/*.test.js",
+    "test": "tsc && node --test dist/*.test.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.20.0",
-    "zod": "^3.25.0"
+    "@labelzoom/sdk": "^2.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/node": "^22.20.0",
+    "@types/node": "^24.19.2",
     "typescript": "^5.9.3"
   }
 }

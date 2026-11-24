@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # @types/node's major tracks the Node runtime in .nvmrc, not the newest release line.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions-all:
+        patterns: ['*']
