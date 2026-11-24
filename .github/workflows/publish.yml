@@ -106,6 +106,13 @@ jobs:
             echo "::error::test files are in the tarball"
             exit 1
           fi
+          # Every compiled file must come from a current source file. tsc never deletes output
+          # whose source was removed, so a stale dist/ ships dead code; 0.2.0 carried the old
+          # client's dist/api.* that way when it was published from a local checkout.
+          for compiled in $(grep -E '^package/dist/.+\.js$' /tmp/tarball.txt); do
+            source="src/$(basename "$compiled" .js).ts"
+            [ -f "$source" ] || { echo "::error::$compiled has no source file ($source)"; exit 1; }
+          done
           rm -f labelzoom-mcp-*.tgz
 
       # npm refuses to publish a version twice. Checked first, so re-running a release, or
