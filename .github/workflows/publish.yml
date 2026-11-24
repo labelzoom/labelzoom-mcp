@@ -1,0 +1,125 @@
+name: Publish
+
+# Publishes labelzoom-mcp to npm via trusted publishing (OIDC): no token, no secret.
+#
+# The FILENAME of this workflow is a matched claim in the npm trusted publisher policy.
+# Renaming this file silently breaks publishing, and npm does not validate the policy when you
+# save it, so the failure surfaces only at publish time.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Build and verify without publishing'
+        type: boolean
+        default: false
+  # A published GitHub Release, not a bare tag push. Creating a release from an EXISTING tag
+  # fires no push event at all, so tag-push silently does nothing for the usual flow, and
+  # configuring both would publish the same version twice.
+  release:
+    types: [published]
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  publish:
+    name: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      id-token: write   # the OIDC token npm exchanges for publish rights, and for provenance
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+          # No `cache: npm` here, unlike ci.yml: a restored cache is attacker-influenced input,
+          # and anything it planted would be signed into the published package's provenance.
+
+      # Trusted publishing needs npm >= 11.5.1. Node 24 bundles a new enough npm, so nothing is
+      # installed; asserted so a regression shows up here rather than as an auth failure.
+      - name: Verify npm supports trusted publishing
+        run: |
+          set -euo pipefail
+          npm_version="$(npm --version)"
+          echo "npm ${npm_version}, node $(node --version)"
+          oldest="$(printf '%s\n' "11.5.1" "$npm_version" | sort -V | head -n1)"
+          if [ "$oldest" != "11.5.1" ] && [ "$npm_version" != "11.5.1" ]; then
+            echo "::error::npm ${npm_version} is too old for trusted publishing (need >= 11.5.1)"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      # A tag must agree with the version it claims to release, or v0.2.1 quietly publishes
+      # whatever package.json says, and the server reports that version in its User-Agent.
+      - name: Verify tag matches package version
+        if: github.event_name == 'release'
+        env:
+          # An env var rather than interpolated into the script: a tag name is
+          # attacker-influenced text, and inlining it into `run:` is template injection.
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          tag_version="${RELEASE_TAG#v}"
+          pkg_version="$(node -p "require('./package.json').version")"
+          echo "tag=$tag_version package.json=$pkg_version"
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "::error::Tag ${RELEASE_TAG} does not match package.json version ${pkg_version}"
+            exit 1
+          fi
+
+      # An empty or test-laden tarball publishes happily; check the artifact itself.
+      - name: Verify the tarball
+        run: |
+          set -euo pipefail
+          npm pack --silent >/dev/null
+          tar -tzf labelzoom-mcp-*.tgz > /tmp/tarball.txt
+          cat /tmp/tarball.txt
+          for required in package/dist/index.js package/dist/tools.js package/dist/client.js package/README.md; do
+            grep -qx "$required" /tmp/tarball.txt || { echo "::error::$required is missing from the tarball"; exit 1; }
+          done
+          if grep -q '\.test\.' /tmp/tarball.txt; then
+            echo "::error::test files are in the tarball"
+            exit 1
+          fi
+          rm -f labelzoom-mcp-*.tgz
+
+      # No NODE_AUTH_TOKEN and no --provenance flag: trusted publishing supplies the credential
+      # via OIDC and attaches provenance itself. A prerelease goes to the `next` dist-tag, so it
+      # never becomes what `npx labelzoom-mcp` runs.
+      - name: Publish to npm
+        if: ${{ !inputs.dry-run }}
+        run: |
+          set -euo pipefail
+          pkg_version="$(node -p "require('./package.json').version")"
+          case "$pkg_version" in
+            *-*) npm publish --access public --tag next ;;
+            *)   npm publish --access public ;;
+          esac
+
+      - name: Dry run summary
+        if: ${{ inputs.dry-run }}
+        run: echo "Dry run complete - built and verified, publish skipped."

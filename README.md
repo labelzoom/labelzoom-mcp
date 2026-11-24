@@ -1,28 +1,29 @@
 # labelzoom-mcp
 
-An [MCP](https://modelcontextprotocol.io) server that puts LabelZoom's label conversion engine
-inside Claude Code, Claude Desktop, and any other MCP client.
+An [MCP](https://modelcontextprotocol.io) server for [LabelZoom](https://www.labelzoom.com). It lets
+Claude and other MCP clients convert barcode labels between formats, render a label to an image and
+look at it, and print labels with LabelZoom Cloud Print.
 
-It lets an assistant convert barcode labels between ZPL, PDF, PNG, BMP, GIF, JPEG, LabelZoom XML,
-and LabelZoom JSON — and, importantly, **render a label to an image and look at it**, so it can
-check that ZPL actually produces the label you meant instead of reasoning about the source blind.
+Rendering is the part that changes how label work goes: the assistant can check that ZPL produces the
+label you meant, instead of reasoning about the code blind.
 
 ## Install
 
-Add it to Claude Code:
+You need Node.js 20 or later.
+
+Add the server to Claude Code:
 
 ```sh
 claude mcp add labelzoom -- npx -y labelzoom-mcp
 ```
 
-To convert without a watermark, supply a LabelZoom API token:
+To convert without a watermark, or to print, give it a LabelZoom API key:
 
 ```sh
-claude mcp add labelzoom --env LABELZOOM_TOKEN=your_token -- npx -y labelzoom-mcp
+claude mcp add labelzoom --env LABELZOOM_API_KEY=YOUR_API_KEY -- npx -y labelzoom-mcp
 ```
 
-<details>
-<summary>Claude Desktop / other clients</summary>
+For Claude Desktop and other clients, add this to the client's MCP configuration:
 
 ```json
 {
@@ -30,40 +31,97 @@ claude mcp add labelzoom --env LABELZOOM_TOKEN=your_token -- npx -y labelzoom-mc
     "labelzoom": {
       "command": "npx",
       "args": ["-y", "labelzoom-mcp"],
-      "env": { "LABELZOOM_TOKEN": "your_token" }
+      "env": { "LABELZOOM_API_KEY": "YOUR_API_KEY" }
     }
   }
 }
 ```
-</details>
 
 ### Configuration
 
-| Variable | Default | Purpose |
+| Variable | Default | Description |
 | --- | --- | --- |
-| `LABELZOOM_TOKEN` | _(none)_ | License JWT. Without it, conversions still work but output is watermarked, and some paths are unavailable. |
-| `LABELZOOM_API_BASE_URL` | `https://api.labelzoom.net` | Point at a different environment. |
+| `LABELZOOM_API_KEY` | None | An API key from the **API Access** section of your [LabelZoom dashboard](https://www.labelzoom.com/dashboard). Printing needs a key with the `print` scope. |
+| `LABELZOOM_API_BASE_URL` | `https://api.labelzoom.com` | The API to call. Change it only if you were given a dedicated endpoint. |
 
-A token is not required to get started. Anonymous conversions are watermarked, and the API gates
-JSON export, printer dialects, image-to-image conversion, and multi-page output behind a paid
-license.
+Without a key, conversions run on the free tier: output is watermarked and holds only the first label,
+and some conversions, such as JSON output and image to image, need a paid plan. See
+[rate limits and plans](https://docs.labelzoom.com/reference/rate-limits-and-plans/).
+
+`LABELZOOM_TOKEN`, the variable name before version 0.2.0, still works when `LABELZOOM_API_KEY` isn't
+set.
 
 ## Tools
 
-**`render_label_preview`** — Render `zpl`, `xml`, `json`, or `pdf` to a PNG returned as an image, so
-the model can see it. This is the one that makes label work feel interactive.
+| Tool | What it does |
+| --- | --- |
+| `render_label_preview` | Renders a label to a PNG and returns it as an image, so the assistant can see it |
+| `convert_label` | Converts a label between any source and target format |
+| `list_conversion_formats` | Lists the formats, which sources take `sourceDpi`, and whether a key is set |
+| `print_label` | Sends a document to a Cloud Print printer, converting it to the printer's language on the way |
+| `print_template` | Fills a published Print Template with data and prints it, one label per record |
+| `get_print_job` | Looks up a print job to see whether it printed |
+| `get_print_quota` | Shows your plan's printer and daily job limits, and when the daily count resets |
 
-**`convert_label`** — Convert between any supported source and target format. Text output (`zpl`,
-`xml`, `json`) comes back inline; binary output is written to `output_path` when given, and returned
-as base64 otherwise.
+### Documents
 
-**`list_conversion_formats`** — Report the supported formats, their media types, and whether a token
-is configured.
+The tools that take a document read it from `content` or from a file at `input_path`:
 
-Both conversion tools accept input either inline via `content` (raw text for text formats, base64
-for binary ones) or from disk via `input_path`, and take optional `dpi`, `rotation`, `scaling`,
-`darkness`, `colorMode`, `labelWidth`, `labelHeight`, `pdfPageNumber`, and a `data` object whose
-keys are merged into the label's dynamic fields.
+- **Text formats:** pass label code in `content` as is. This covers the printer languages, LabelZoom XML
+  and JSON, and DYMO files.
+- **Binary formats:** pass a PDF, an image, or a NiceLabel or BarTender file in `content` as base64, or
+  point `input_path` at the file.
+- **The `url` source:** put the URL in `content`, and LabelZoom fetches the document. You can convert a
+  URL, but you can't print one.
+
+`convert_label` returns text output inline. It writes binary output to `output_path` when you give one,
+and returns it as base64 otherwise. EPL, IPL, TSPL, DPL and SBPL output can contain raw bytes, such as an
+inline bitmap. That output comes back inline only when it has none, and as base64 when it does.
+
+### Formats
+
+| Kind | Sources | Targets |
+| --- | --- | --- |
+| Printer languages | `zpl` `epl` `ipl` `tspl` `dpl` `sbpl` `cpcl` `esclabel` `fingerprint` `ezpl` `tpcl` | `zpl` `epl` `ipl` `tspl` `dpl` `sbpl` `cpcl` |
+| Label design files | `nlbl` `lbl` (NiceLabel), `btw` (BarTender), `dymo` (DYMO) | None |
+| Documents and images | `pdf` `png` `bmp` `gif` `jpeg` `jpg` | `pdf` `png` `bmp` `gif` `jpeg` |
+| LabelZoom | `xml` `json` | `xml` `json` |
+| Other | `url` | None |
+
+### Options
+
+Options use the API's own names.
+
+| Option | Applies to | What it does |
+| --- | --- | --- |
+| `sourceDpi` | Printer-language and image sources | The resolution the document was made for. The output follows it unless `targetDpi` is set |
+| `targetDpi` | Every target except PDF | The resolution of the output. Match the printer |
+| `labelWidth`, `labelHeight` | Every source | The label size in inches. Leave them unset to use the size the label code declares |
+| `labelIndex` | Multi-label documents | Converts only this label, counting from 0 |
+| `data` | Labels with variable fields | Values for the fields. An array produces one label per entry |
+| `rotation` | Every conversion and print | Rotates the output by a multiple of 90 degrees |
+| `pdfPageNumber`, `pdfConversionMode` | PDF sources | The page, counting from 0, and `IMAGE` or `NATIVE` conversion |
+| `split` | PDF and image sources | Cuts each page into a grid of labels. Lengths are in inches |
+| `scaling`, `darkness`, `colorMode` | PDF and image sources | How the page is scaled and reduced to black and white |
+| `zplCommandsToIgnore` | ZPL and ESC/Label sources | Commands to skip, such as `["^PQ"]` |
+| `zplImageCompression`, `zplCollapseCopies`, `layout` | ZPL targets | Image encoding, collapsing identical labels into a `^PQ` count, and labels side by side on a multi-across roll |
+| `watermark`, `dialect` | Every target | Forces a watermark, or picks an output dialect on a paid plan |
+
+A print takes the document options and `rotation`. The printer decides the output format.
+
+### Printing
+
+Printing needs a printer connected through [LabelZoom Cloud Print](https://www.labelzoom.com/cloud-print)
+and an API key with the `print` scope. Copy the printer's ID from the dashboard.
+
+- **Accepted is not printed.** A job starts out `dispatched` or `queued`. Only `completed` means the label
+  came out of the printer, so use `get_print_job` to follow it.
+- **Retries are safe.** Every print carries an idempotency key. Pass `idempotency_key`, such as an order
+  number, and repeating the print returns the original job instead of printing again. Without one,
+  labelzoom-mcp generates a key for each call and reuses it if that call is retried.
+- **Copies multiply.** `copies` sends the job 1 to 9999 times. A quantity in the label itself, such as
+  `^PQ3`, multiplies with it.
+- **The daily job limit isn't retried.** It resets at midnight UTC, and `get_print_quota` shows when.
 
 ## Try it
 
@@ -76,21 +134,23 @@ keys are merged into the label's dynamic fields.
 > ^XZ
 > ```
 
-## Development
+## Contributing
 
-Requires Node 20+.
+The server is built on the [LabelZoom Node.js SDK](https://www.npmjs.com/package/@labelzoom/sdk), which
+handles the API's wire rules and runs the shared LabelZoom conformance suite. The tests here check that
+each tool drives the SDK correctly. They run offline.
 
 ```sh
 npm install
-npm run build      # compile to dist/
-npm test           # unit tests (no network)
+npm test           # builds, then runs the tool tests
 npm run typecheck
 ```
 
-`src/api.ts` is a transport-agnostic client for `POST /api/v2/convert/{source}/to/{target}`;
-`src/tools.ts` registers the MCP tools against it; `src/index.ts` is the stdio entrypoint. The tools
-are deliberately kept independent of the transport so the same set can later be served over
-Streamable HTTP from a Cloudflare Worker alongside the other `labelzoom-cf-*` services.
+`src/tools.ts` registers the tools, `src/client.ts` builds the SDK client from the environment,
+`src/formats.ts` decides how documents travel in a tool call, and `src/index.ts` is the stdio entry point.
+
+To release, publish a GitHub Release tagged `vX.Y.Z` that matches `package.json`. The publish workflow
+tests the build and publishes it to npm with provenance.
 
 ## License
 
