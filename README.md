@@ -1,8 +1,8 @@
-# labelzoom-mcp
+# LabelZoom MCP server
 
 An [MCP](https://modelcontextprotocol.io) server for [LabelZoom](https://www.labelzoom.com). It lets
 Claude and other MCP clients convert barcode labels between formats, render a label to an image and
-look at it, and print labels with LabelZoom Cloud Print.
+look at it, and print labels with LabelZoom Cloud Print. It's published to npm as `@labelzoom/mcp`.
 
 Rendering is the part that changes how label work goes: the assistant can check that ZPL produces the
 label you meant, instead of reasoning about the code blind.
@@ -14,13 +14,13 @@ You need Node.js 20 or later.
 Add the server to Claude Code:
 
 ```sh
-claude mcp add labelzoom -- npx -y labelzoom-mcp
+claude mcp add labelzoom -- npx -y @labelzoom/mcp
 ```
 
 To convert without a watermark, or to print, give it a LabelZoom API key:
 
 ```sh
-claude mcp add labelzoom --env LABELZOOM_API_KEY=YOUR_API_KEY -- npx -y labelzoom-mcp
+claude mcp add labelzoom --env LABELZOOM_API_KEY=YOUR_API_KEY -- npx -y @labelzoom/mcp
 ```
 
 For Claude Desktop and other clients, add this to the client's MCP configuration:
@@ -30,7 +30,7 @@ For Claude Desktop and other clients, add this to the client's MCP configuration
   "mcpServers": {
     "labelzoom": {
       "command": "npx",
-      "args": ["-y", "labelzoom-mcp"],
+      "args": ["-y", "@labelzoom/mcp"],
       "env": { "LABELZOOM_API_KEY": "YOUR_API_KEY" }
     }
   }
@@ -118,7 +118,7 @@ and an API key with the `print` scope. Copy the printer's ID from the dashboard.
   came out of the printer, so use `get_print_job` to follow it.
 - **Retries are safe.** Every print carries an idempotency key. Pass `idempotency_key`, such as an order
   number, and repeating the print returns the original job instead of printing again. Without one,
-  labelzoom-mcp generates a key for each call and reuses it if that call is retried.
+  the server generates a key for each call and reuses it if that call is retried.
 - **Copies multiply.** `copies` sends the job 1 to 9999 times. A quantity in the label itself, such as
   `^PQ3`, multiplies with it.
 - **The daily job limit isn't retried.** It resets at midnight UTC, and `get_print_quota` shows when.

@@ -1,5 +1,5 @@
 {
-  "name": "labelzoom-mcp",
+  "name": "@labelzoom/mcp",
   "version": "0.2.0",
   "description": "MCP server for LabelZoom: convert, preview and print barcode labels (ZPL, EPL, CPCL and other printer languages, BarTender, NiceLabel and DYMO files, PDF and images) from Claude and other MCP clients",
   "keywords": [
@@ -43,7 +43,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "prepublishOnly": "npm run build",
+    "prepack": "npm run build",
     "test": "tsc && node --test dist/*.test.js",
     "typecheck": "tsc --noEmit"
   },
