@@ -1,6 +1,6 @@
 name: Publish
 
-# Publishes labelzoom-mcp to npm via trusted publishing (OIDC): no token, no secret.
+# Publishes @labelzoom/mcp to npm via trusted publishing (OIDC): no token, no secret.
 #
 # The FILENAME of this workflow is a matched claim in the npm trusted publisher policy.
 # Renaming this file silently breaks publishing, and npm does not validate the policy when you
@@ -96,6 +96,7 @@ jobs:
         run: |
           set -euo pipefail
           npm pack --silent >/dev/null
+          # npm pack names a scoped package <scope>-<name>-<version>.tgz.
           tar -tzf labelzoom-mcp-*.tgz > /tmp/tarball.txt
           cat /tmp/tarball.txt
           for required in package/dist/index.js package/dist/tools.js package/dist/client.js package/README.md; do
@@ -125,7 +126,7 @@ jobs:
 
       # No NODE_AUTH_TOKEN and no --provenance flag: trusted publishing supplies the credential
       # via OIDC and attaches provenance itself. A prerelease goes to the `next` dist-tag, so it
-      # never becomes what `npx labelzoom-mcp` runs.
+      # never becomes what `npx @labelzoom/mcp` runs.
       - name: Publish to npm
         if: ${{ !inputs.dry-run && steps.published.outputs.exists != 'true' }}
         run: |
