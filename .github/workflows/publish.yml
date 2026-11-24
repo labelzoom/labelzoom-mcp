@@ -107,11 +107,27 @@ jobs:
           fi
           rm -f labelzoom-mcp-*.tgz
 
+      # npm refuses to publish a version twice. Checked first, so re-running a release, or
+      # releasing a version that was published by hand (as 0.2.0 was, before the package existed
+      # and trusted publishing could be configured), verifies the build and stops cleanly.
+      - name: Check whether this version is already on npm
+        id: published
+        run: |
+          set -euo pipefail
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            echo "::notice::${name}@${version} is already on npm; skipping publish."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # No NODE_AUTH_TOKEN and no --provenance flag: trusted publishing supplies the credential
       # via OIDC and attaches provenance itself. A prerelease goes to the `next` dist-tag, so it
       # never becomes what `npx labelzoom-mcp` runs.
       - name: Publish to npm
-        if: ${{ !inputs.dry-run }}
+        if: ${{ !inputs.dry-run && steps.published.outputs.exists != 'true' }}
         run: |
           set -euo pipefail
           pkg_version="$(node -p "require('./package.json').version")"
