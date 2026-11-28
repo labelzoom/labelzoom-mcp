@@ -1,6 +1,6 @@
 {
   "name": "@labelzoom/mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "MCP server for LabelZoom: convert, preview and print barcode labels (ZPL, EPL, CPCL and other printer languages, BarTender, NiceLabel and DYMO files, PDF and images) from Claude and other MCP clients",
   "keywords": [
     "mcp",
