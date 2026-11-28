@@ -44,8 +44,9 @@ For Claude Desktop and other clients, add this to the client's MCP configuration
 | `LABELZOOM_API_KEY` | None | An API key from the **API Access** section of your [LabelZoom dashboard](https://www.labelzoom.com/dashboard). Printing needs a key with the `print` scope. |
 | `LABELZOOM_API_BASE_URL` | `https://api.labelzoom.com` | The API to call. Change it only if you were given a dedicated endpoint. |
 
-Without a key, conversions run on the free tier: output is watermarked and holds only the first label,
-and some conversions, such as JSON output and image to image, need a paid plan. See
+Without a key, conversions run on the free tier: output is watermarked, only the first label of each
+request converts (set `labelIndex` to convert any other one), and some conversions, such as JSON
+output and image to image, need a paid plan. See
 [rate limits and plans](https://docs.labelzoom.com/reference/rate-limits-and-plans/).
 
 `LABELZOOM_TOKEN`, the variable name before version 0.2.0, still works when `LABELZOOM_API_KEY` isn't
@@ -104,7 +105,8 @@ Options use the API's own names.
 | `split` | PDF and image sources | Cuts each page into a grid of labels. Lengths are in inches |
 | `scaling`, `darkness`, `colorMode` | PDF and image sources | How the page is scaled and reduced to black and white |
 | `zplCommandsToIgnore` | ZPL and ESC/Label sources | Commands to skip, such as `["^PQ"]` |
-| `zplImageCompression`, `zplCollapseCopies`, `layout` | ZPL targets | Image encoding, collapsing identical labels into a `^PQ` count, and labels side by side on a multi-across roll |
+| `zplImageCompression`, `zplCollapseCopies` | ZPL targets | Image encoding, and collapsing identical labels into a `^PQ` count |
+| `layout` | Printer-language targets from a PDF or image | Labels side by side on a multi-across roll |
 | `watermark`, `dialect` | Every target | Forces a watermark, or picks an output dialect on a paid plan |
 
 A print takes the document options and `rotation`. The printer decides the output format.
